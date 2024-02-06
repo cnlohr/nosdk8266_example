@@ -13,9 +13,6 @@ include ../nosdk8266/Makefile
 rf_data_gen : rf_data_gen.c
 	gcc -o $@ $^ -lm
 
-chirpbuff.h : rf_data_gen
-	./rf_data_gen
-
 chirpbuff.dat : rf_data_gen
 	./rf_data_gen
 
