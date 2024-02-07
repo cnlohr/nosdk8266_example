@@ -7,9 +7,9 @@ int main()
 {
 	//FILE * f = fopen( "chirpbuff.h", "w" );
 	FILE * fd = fopen( "chirpbuff.dat", "w" );
-	double chirp_begin = 903.9-.075;
-	double chirp_end = 903.9+.075;
-	double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
+	double chirp_begin = 900;
+	double chirp_end = 901;
+	double sample_rate = 1040.0/6; // Sampler at 173MHz.
 	double sampletotal = 8192*(32);
 	//fprintf( f, "const uint32_t chirpbuff[%d] = {\n", (int)(sampletotal/32) );
 	int samples;

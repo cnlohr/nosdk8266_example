@@ -1,3 +1,4 @@
+
 //#include "c_types.h"
 #include "esp8266_auxrom.h"
 #include "eagle_soc.h"
@@ -12,10 +13,9 @@
 #include "dmastuff.h"
 #include "pin_mux_register.h"
 
-#define DMABUFFERDEPTH 16
-#define I2SDMABUFLEN (512)
-#define LINE32LEN I2SDMABUFLEN
-#define RX_NUM (I2SDMABUFLEN)
+#include "chirpbuffinfo.h"
+
+#define DMABUFFERDEPTH 3
 
 extern int fxcycle;
 extern int etx;
@@ -29,20 +29,29 @@ void testi2s_init();
 //I2S DMA buffer descriptors
 static struct sdio_queue i2sBufDescTX[DMABUFFERDEPTH] __attribute__((aligned(128)));;
 
-//#include "chirpbuff.h"
-uint32_t chirpbuff[8192];
+uint32_t chirpbuffUP[CHIRPLENGTH_WORDS_WITH_PADDING];
+uint32_t chirpbuffDOWN[CHIRPLENGTH_WORDS_WITH_PADDING];
 
-//uint32_t i2sBDTX[I2SDMABUFLEN*DMABUFFERDEPTH] __attribute__((aligned(128)));
 int fxcycle;
 int etx;
 
+
+#define MAX_LORA_SYMBOLS 512
+uint16_t lora_symbols[MAX_LORA_SYMBOLS];
+int lora_symbol_count;
+
 void slc_isr(void * v) {
 	struct sdio_queue *finishedDesc;
-	fxcycle++;
 //	slc_intr_status = READ_PERI_REG(SLC_INT_STATUS); -> We should check to make sure we are SLC_RX_EOF_INT_ST, but we are only getting one interrupt.
 	WRITE_PERI_REG(SLC_INT_CLR, 0xffffffff);
 
+#define DMA_SIZE_WORDS (118)
+#define NUM_DMAS_PER_CHIRP (47)
+
 	finishedDesc=(struct sdio_queue*)READ_PERI_REG(SLC_RX_EOF_DES_ADDR);
+	if( fxcycle>= NUM_DMAS_PER_CHIRP ) fxcycle = 0;
+	finishedDesc->buf_ptr= ((uint32_t)(chirpbuffUP)) + (fxcycle++) * DMA_SIZE_WORDS * 4;
+
 	etx++;
 }
 
@@ -54,22 +63,16 @@ void testi2s_init() {
 	//Initialize DMA buffer descriptors in such a way that they will form a circular
 	//buffer.
 
+	fxcycle = 0;
 	for (x=0; x<DMABUFFERDEPTH; x++) {
 		i2sBufDescTX[x].owner=1;
 		i2sBufDescTX[x].eof=1;  // Trigger interrupt on packet complete.
 		i2sBufDescTX[x].sub_sof=0;
-		i2sBufDescTX[x].datalen=I2SDMABUFLEN*4;
-		i2sBufDescTX[x].blocksize=I2SDMABUFLEN*4;
-		i2sBufDescTX[x].buf_ptr= ((uint32_t)(chirpbuff)) + x * I2SDMABUFLEN * 4;
+		i2sBufDescTX[x].datalen=DMA_SIZE_WORDS*4;
+		i2sBufDescTX[x].blocksize=DMA_SIZE_WORDS*4;
+		i2sBufDescTX[x].buf_ptr= ((uint32_t)(chirpbuffUP)) + (fxcycle++) * DMA_SIZE_WORDS * 4;
 		i2sBufDescTX[x].unused=0;
 		i2sBufDescTX[x].next_link_ptr=(int)((x<(DMABUFFERDEPTH-1))?(&i2sBufDescTX[x+1]):(&i2sBufDescTX[0]));
-		/*
-		for( y = 0; y < I2SDMABUFLEN; y++ )
-		{
-			i2sBDTX[y+x*I2SDMABUFLEN] = 0xAAAAAAAA;
-		}
-		i2sBDTX[x*I2SDMABUFLEN + I2SDMABUFLEN - 1] = 0xffffffff;
-		*/
 	}
 
 	//Reset DMA )
@@ -123,7 +126,7 @@ void testi2s_init() {
 
 	CLEAR_PERI_REG_MASK(I2S_FIFO_CONF, I2S_I2S_DSCR_EN|(I2S_I2S_RX_FIFO_MOD<<I2S_I2S_RX_FIFO_MOD_S));
 	SET_PERI_REG_MASK(I2S_FIFO_CONF, I2S_I2S_DSCR_EN);
-	WRITE_PERI_REG(I2SRXEOF_NUM, RX_NUM);
+	WRITE_PERI_REG(I2SRXEOF_NUM, DMA_SIZE_WORDS*4);
 
 	CLEAR_PERI_REG_MASK(I2SCONF_CHAN, (I2S_RX_CHAN_MOD<<I2S_RX_CHAN_MOD_S));
 
@@ -147,13 +150,10 @@ int main()
 
 	// We store the bit pattern at flash:0x20000, so we don't have to constantly
 	// re-write it when working on code.
-	SPIRead( 0x20000, chirpbuff, sizeof( chirpbuff ) );
+	SPIRead( MEMORY_START_OFFSET, chirpbuffUP, sizeof( chirpbuffUP ) );
+	SPIRead( REVERSE_START_OFFSET, chirpbuffDOWN, sizeof( chirpbuffDOWN ) );
 
 	nosdk8266_init();
-
- 	rom_i2c_writeReg(103, 4, 1, 0x88);
- 	rom_i2c_writeReg(103, 4, 2, 0xa1);
-
 
 	// Configure GPIO5 (TX) and GPIO2 (LED)
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U,FUNC_GPIO2);
@@ -164,10 +164,6 @@ int main()
 	// It looks like, at least on my part, if I try running
 	// hotter it can get to 1040/5.1 but not all the way to
 	// 5 so it's unstable there.
- //	rom_i2c_writeReg(103, 4, 1, 0x88);
- //	rom_i2c_writeReg(103, 4, 2, 0xa1);
-// 	ets_update_cpu_frequency(80);
-
 
 	testi2s_init();
 
@@ -177,12 +173,11 @@ int main()
 		frame++;
 		PIN_OUT_SET = _BV(2); //Turn GPIO2 light off.
 		//call_delay_us(1000000);
-		printf("ETX: %d %08x\n", etx, chirpbuff[0]);
+		printf("ETX: %d %08x\n", etx, chirpbuffUP[0]);
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
-		call_delay_us(500000);
+		call_delay_us(100000);
+		CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_LORA_SYMBOLS, 7 /* Hard-coded because of our table */ )
 		PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_I2SO_DATA); // GPIO3
-		call_delay_us(500000);
-		PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_GPIO3); // GPIO3
 	}
 }
 
