@@ -44,7 +44,8 @@ int etx;
 
 // Our table is bespoke for the specific SF.
 #define CHIPSSPREAD CHIRPLENGTH_WORDS// QUARTER_CHIRP_LENGTH_WORDS (TODO: Use the quater value elsewhere in the code)
-#define MARK_FROM_SF0 (1<<7) // SF7
+#define ADDSF 7
+#define MARK_FROM_SF0 (1<<ADDSF) // SF7
 
 // For some reason, adding a small time offset too symbols and header makes them more readable.
 #define DATA_PHASE_OFFSET ( CHIPSSPREAD / 512 )
@@ -270,6 +271,8 @@ int main()
 	#else
 		#define CODEWORD_SHIFT 3
 	#endif
+
+		#define CODEWORD_SHIFT 3
 
 		if( CODEWORD_LENGTH > 0 )
 			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), 0 );
