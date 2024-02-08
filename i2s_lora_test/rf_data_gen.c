@@ -4,14 +4,15 @@
 
 const uint32_t memory_offset = 0x20000;
 
-const double chirp_begin = 903.9-.075;
-const double chirp_end = 903.9+.075;
+const double center_frequency = 903.9;
+const double chirp_begin = center_frequency-.075;
+const double chirp_end = center_frequency+.075;
 
 const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 const double chirp_length_seconds = 0.001024;
 const double sampletotal = ( chirp_length_seconds * sample_rate * 1000000 ) + 0.5;
 
-uint32_t bleedover = 128;
+uint32_t bleedover = 256;
 int words = 0;
 int words_nominal = 0;
 
@@ -54,7 +55,6 @@ void GenChirp( double fStart,  double fEnd )
 				{
 					break;
 				}
-
 			}
 			sample_word <<= 1;
 		}
@@ -72,7 +72,9 @@ int main()
 
 	// For a given word, it is shifted out MSB (Bit and byte) first
 	GenChirp( chirp_begin, chirp_end );
-	int sample_word_median = words;
+	int sample_word_median = words_nominal;
+	int quarter_chirp_length = ((sample_word_median+2)/4);
+
 	words = 0;
 	GenChirp( chirp_end, chirp_begin );
 
@@ -84,6 +86,7 @@ int main()
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS (%d)\n", words_nominal );
 	fprintf( fCBI, "#define MEMORY_START_OFFSET (0x%08x)\n", memory_offset );
 	fprintf( fCBI, "#define REVERSE_START_OFFSET (0x%08x)\n", memory_offset + sample_word_median*4 );
+	fprintf( fCBI, "#define QUARTER_CHIRP_LENGTH_WORDS (%d)\n",  (int)(quarter_chirp_length) );
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS_WITH_PADDING (%d)\n", sample_word_median );
 	fprintf( fCBI, "#define STRIPE_BLEEDOVER_WORDS (%d)\n", bleedover );
 
@@ -92,7 +95,7 @@ int main()
 	// Minimum of 32, max of 255 words
 	for( i = 32; i < 255; i++ )
 	{
-		if( words_nominal % i == 0 )
+		if( quarter_chirp_length % i == 0 )
 		{
 			factor = i;
 		}
@@ -103,6 +106,6 @@ int main()
 		return -9;
 	}
 	fprintf( fCBI, "#define DMA_SIZE_WORDS (%d)\n", factor );
-	fprintf( fCBI, "#define NUM_DMAS_PER_CHIRP (%d)\n", words_nominal/factor );
+	fprintf( fCBI, "#define NUM_DMAS_PER_QUARTER_CHIRP (%d)\n", quarter_chirp_length/factor );
 	fclose( fCBI );
 }

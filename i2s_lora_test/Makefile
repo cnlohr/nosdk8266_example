@@ -1,3 +1,5 @@
+all : chirpbuff.dat.flash 
+
 SUBMODULE=YES
 SRCPREFIX=../nosdk8266/
 MAIN_MHZ=173
@@ -5,8 +7,6 @@ SRCS=main.c
 DEPS=chirpbuffinfo.h
 COMPILECOUNT=$(shell cat compilecount.txt || true)
 BUILDCOUNTCMD=echo 1+0$(COMPILECOUNT) | bc > compilecount.txt | true Compiled $(COMPILECOUNT) times
-
-DEPS=chirpbuff.h
 
 include ../nosdk8266/Makefile
 

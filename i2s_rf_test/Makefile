@@ -16,6 +16,8 @@ rf_data_gen : rf_data_gen.c
 chirpbuff.dat : rf_data_gen
 	./rf_data_gen
 
+chirpbuff.h : chirpbuff.dat
+
 chirpbuff.dat.flash : chirpbuff.dat
 	$(ESPUTIL) flash 0x20000 chirpbuff.dat
 

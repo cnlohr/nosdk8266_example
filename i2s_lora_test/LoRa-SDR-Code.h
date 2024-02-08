@@ -18,6 +18,7 @@ Hopefully that covers some of the other stuff.
 
 // From LoRaCodes.hpp
 
+#include <string.h>
 
 /***********************************************************************
  * Defines
@@ -490,7 +491,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 
 	if( numSymbols >= max_symbols )
 	{
-		uprintf( "Error: Too many symbols to fit (%d/%d)\n", numSymbols, max_symbols );
+		//uprintf( "Error: Too many symbols to fit (%d/%d)\n", numSymbols, max_symbols );
 		return -1;
 	}
 	
@@ -538,9 +539,8 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	size_t cOfs1 = cOfs;
 	encodeFec( codewords, 4 /* 8/4 */, &cOfs, &dOfs, payload_in, PPM - cOfs );
 
-	uprintf( "cofs/dofs: %d %d\n", cOfs, dOfs );
-	uprintf( "HP0: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // PPM:%d HEADER_RDD:%d numCodewords:%d // payload_in_size:%d ;;  numSymbols: %d 3=%d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size,
- numSymbols, 3 );
+	//uprintf( "cofs/dofs: %d %d\n", cOfs, dOfs );
+	//uprintf( "HP0: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // PPM:%d HEADER_RDD:%d numCodewords:%d // payload_in_size:%d ;;  numSymbols: %d 3=%d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size, numSymbols, 3 );
 
 	// Whitening for the data that lives inside the header block.
 	if( _whitening )
@@ -558,7 +558,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 		}
 	}
 
-	 uprintf( "HPP: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size,PPM,numCodewords, numSymbols );
+	// uprintf( "HPP: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size,PPM,numCodewords, numSymbols );
 
 	//interleave the codewords into symbols
 	int symbols_size = numSymbols;
@@ -577,7 +577,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	}
 
 
-	uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
+	//uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
 
 	//gray decode, when SF > PPM, pad out LSBs
 	uint16_t sym;
@@ -591,7 +591,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	}
 
 
-	uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
+	//uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
 
 	//uprintf( "GRA: %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d %d %d\n", hdr[0], hdr[1], hdr[2], symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size,PPM,numCodewords, numSymbols );
 

@@ -15,10 +15,9 @@
 
 #include "chirpbuffinfo.h"
 
-#define DMABUFFERDEPTH 3
+#include "LoRa-SDR-Code.h"
 
-extern int fxcycle;
-extern int etx;
+#define DMABUFFERDEPTH 3
 
 void testi2s_init();
 
@@ -31,28 +30,90 @@ static struct sdio_queue i2sBufDescTX[DMABUFFERDEPTH] __attribute__((aligned(128
 
 uint32_t chirpbuffUP[CHIRPLENGTH_WORDS_WITH_PADDING];
 uint32_t chirpbuffDOWN[CHIRPLENGTH_WORDS_WITH_PADDING];
+uint32_t dummy[DMA_SIZE_WORDS];
 
-int fxcycle;
+volatile int fxcycle;
 int etx;
 
 
-#define MAX_LORA_SYMBOLS 512
-uint16_t lora_symbols[MAX_LORA_SYMBOLS];
-int lora_symbol_count;
+
+
+
+#define MAX_SYMBOLS 270
+
+
+// Our table is bespoke for the specific SF.
+#define CHIPSSPREAD CHIRPLENGTH_WORDS// QUARTER_CHIRP_LENGTH_WORDS (TODO: Use the quater value elsewhere in the code)
+#define MARK_FROM_SF0 (1<<7) // SF7
+
+// For some reason, adding a small time offset too symbols and header makes them more readable.
+#define DATA_PHASE_OFFSET ( CHIPSSPREAD / 512 )
+
+#define PREAMBLE_CHIRPS 10
+#define CODEWORD_LENGTH 2
+
+uint32_t quadsetcount;
+int32_t quadsets[MAX_SYMBOLS*4+PREAMBLE_CHIRPS*4+9+CODEWORD_LENGTH*4];
+
+int32_t * AddChirp( int32_t * qso, int offset, int verneer )
+{
+	offset = offset * CHIPSSPREAD / (MARK_FROM_SF0);
+	offset += verneer;
+	*(qso++) = (CHIPSSPREAD * 0 / 4 + offset + CHIPSSPREAD ) % CHIPSSPREAD;
+	*(qso++) = (CHIPSSPREAD * 1 / 4 + offset + CHIPSSPREAD ) % CHIPSSPREAD;
+	*(qso++) = (CHIPSSPREAD * 2 / 4 + offset + CHIPSSPREAD ) % CHIPSSPREAD;
+	*(qso++) = (CHIPSSPREAD * 3 / 4 + offset + CHIPSSPREAD ) % CHIPSSPREAD;
+	return qso;
+}
+
+
+volatile int quadsetplace = -1;
 
 void slc_isr(void * v) {
 	struct sdio_queue *finishedDesc;
 //	slc_intr_status = READ_PERI_REG(SLC_INT_STATUS); -> We should check to make sure we are SLC_RX_EOF_INT_ST, but we are only getting one interrupt.
 	WRITE_PERI_REG(SLC_INT_CLR, 0xffffffff);
 
-#define DMA_SIZE_WORDS (118)
-#define NUM_DMAS_PER_CHIRP (47)
+	//#define DMA_SIZE_WORDS (129)
+	//#define NUM_DMAS_PER_QUARTER_CHIRP (11)
+	//#define CHIRPLENGTH_WORDS_WITH_PADDING (5675)
 
 	finishedDesc=(struct sdio_queue*)READ_PERI_REG(SLC_RX_EOF_DES_ADDR);
-	if( fxcycle>= NUM_DMAS_PER_CHIRP ) fxcycle = 0;
-	finishedDesc->buf_ptr= ((uint32_t)(chirpbuffUP)) + (fxcycle++) * DMA_SIZE_WORDS * 4;
-
 	etx++;
+
+	if( quadsetplace < 0 )
+	{
+		goto dump0;
+	}
+
+	// LoRa symbols are in quarters of a chirp.
+	if( fxcycle>= NUM_DMAS_PER_QUARTER_CHIRP )
+	{
+		fxcycle = 0;
+		quadsetplace++;
+		if( quadsetplace >= quadsetcount ) goto dump0;
+	}
+
+	int symbol = quadsets[quadsetplace];	
+
+	if( symbol < 0 )
+	{
+		symbol = -symbol;
+		if( symbol >= CHIPSSPREAD ) symbol -= CHIPSSPREAD;
+		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN) + fxcycle * DMA_SIZE_WORDS * 4 + symbol * 4;
+	}
+	else
+	{
+		if( symbol >= CHIPSSPREAD ) symbol -= CHIPSSPREAD;
+		finishedDesc->buf_ptr = (uint32_t)(chirpbuffUP) + fxcycle * DMA_SIZE_WORDS * 4 + symbol * 4;
+	}
+	fxcycle++;
+	return;
+dump0:
+	// This location just always reads as zeroes.
+	finishedDesc->buf_ptr = (uint32_t)dummy;
+	quadsetplace = -1;
+	return;
 }
 
 //Initialize I2S subsystem for DMA circular buffer use
@@ -152,7 +213,7 @@ int main()
 	// re-write it when working on code.
 	SPIRead( MEMORY_START_OFFSET, chirpbuffUP, sizeof( chirpbuffUP ) );
 	SPIRead( REVERSE_START_OFFSET, chirpbuffDOWN, sizeof( chirpbuffDOWN ) );
-
+	memset( dummy, 0, sizeof( dummy ) );
 	nosdk8266_init();
 
 	// Configure GPIO5 (TX) and GPIO2 (LED)
@@ -168,16 +229,86 @@ int main()
 	testi2s_init();
 
 	int frame = 0;
+	uint16_t lora_symbols[MAX_SYMBOLS];
+	int lora_symbols_count;
+
 	while(1) {
 		//12x this speed.
 		frame++;
 		PIN_OUT_SET = _BV(2); //Turn GPIO2 light off.
 		//call_delay_us(1000000);
-		printf("ETX: %d %08x\n", etx, chirpbuffUP[0]);
+		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10]);
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
-		call_delay_us(100000);
-		CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_LORA_SYMBOLS, 7 /* Hard-coded because of our table */ )
-		PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_I2SO_DATA); // GPIO3
+		call_delay_us(1000000);
+		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, 7 /* Hard-coded because of our table */ );
+
+		if( r < 0 )
+		{
+			printf( "Failed to generate message (%d)\n", r );
+			// Failed
+			continue;
+		}
+
+		int j;
+		//for( j = 0; j < symbols_len; j++ )
+		//	symbols[j] = 255 - symbols[j];
+
+		quadsetcount = 0;
+		int32_t * qso = quadsets;
+		for( j = 0; j < PREAMBLE_CHIRPS; j++ )
+		{
+			qso = AddChirp( qso, 0, 0 );
+		}
+
+		uint8_t syncword = 0x43;
+
+	#if ADDSF <= 6
+		#define CODEWORD_SHIFT 2 // XXX TODO: No idea what this would do here! XXX This is probably wrong.
+	#elif ADDSF >= 11
+		#define CODEWORD_SHIFT 3 // XXX TODO: Unknown for SF11, SF12 Might be 3?
+	#else
+		#define CODEWORD_SHIFT 3
+	#endif
+
+		if( CODEWORD_LENGTH > 0 )
+			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), 0 );
+		if( CODEWORD_LENGTH > 1 )
+			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), 0 );
+
+
+		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 1 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 2 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 3 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 1 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 2 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 3 / 4 )-1;
+		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
+
+		//if( ADDSF <= 6 )
+		//{
+		//	// Two additional upchirps with SF6 https://github.com/tapparelj/gr-lora_sdr/issues/74#issuecomment-1891569580
+		//	for( j = 0; j < 2; j++ )
+		//	{
+		//		qso = AddChirp( qso, 0, 0 );
+		//	}
+		//}
+
+		for( j = 0; j < lora_symbols_count; j++ )
+		{
+			int ofs = lora_symbols[j];
+			//ofs = ofs ^ ((MARK_FROM_SF6<<6) -1);
+			//ofs &= (MARK_FROM_SF6<<6) -1;
+			qso = AddChirp( qso, ofs, DATA_PHASE_OFFSET );
+		}
+		
+		quadsetcount = qso - quadsets;
+		printf( "--- %d %d %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
+
+
+		quadsetplace = 0;
 	}
+
 }
 
