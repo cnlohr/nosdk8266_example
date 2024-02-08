@@ -98,14 +98,15 @@ void slc_isr(void * v) {
 
 	if( symbol < 0 )
 	{
-		symbol = -symbol;
-		if( symbol >= CHIPSSPREAD ) symbol -= CHIPSSPREAD;
-		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN) + fxcycle * DMA_SIZE_WORDS * 4 + symbol * 4;
+		int word = fxcycle * DMA_SIZE_WORDS - symbol;
+		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
+		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN + word);
 	}
 	else
 	{
-		if( symbol >= CHIPSSPREAD ) symbol -= CHIPSSPREAD;
-		finishedDesc->buf_ptr = (uint32_t)(chirpbuffUP) + fxcycle * DMA_SIZE_WORDS * 4 + symbol * 4;
+		int word = fxcycle * DMA_SIZE_WORDS + symbol;
+		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
+		finishedDesc->buf_ptr = (uint32_t)(chirpbuffUP + word);
 	}
 	fxcycle++;
 	return;

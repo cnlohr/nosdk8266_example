@@ -12,7 +12,7 @@ const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 const double chirp_length_seconds = 0.001024;
 const double sampletotal = ( chirp_length_seconds * sample_rate * 1000000 ) + 0.5;
 
-uint32_t bleedover = 256;
+uint32_t bleedover = 256; // in words
 int words = 0;
 int words_nominal = 0;
 
@@ -89,7 +89,7 @@ int main()
 	fprintf( fCBI, "#define QUARTER_CHIRP_LENGTH_WORDS (%d)\n",  (int)(quarter_chirp_length) );
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS_WITH_PADDING (%d)\n", sample_word_median );
 	fprintf( fCBI, "#define STRIPE_BLEEDOVER_WORDS (%d)\n", bleedover );
-
+	fprintf( fCBI, "#define TARGET_SAMPLE_COUNT_BITS (%d)\n", (int)sampletotal );
 	int factor = 0;
 	int i;
 	// Minimum of 32, max of 255 words
