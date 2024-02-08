@@ -101,6 +101,7 @@ void slc_isr(void * v) {
 	{
 		int word = fxcycle * DMA_SIZE_WORDS - symbol;
 		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
+		word++;
 		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN + word);
 	}
 	else
