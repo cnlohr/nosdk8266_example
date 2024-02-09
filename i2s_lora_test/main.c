@@ -118,6 +118,8 @@ void slc_isr(void * v) {
 		int overflow_remainder = overflow % 32;
 		finishedDesc->datalen = DMA_SIZE_WORDS*4 - 4*overflow_amount;
 		runningcount_bits = overflow_remainder;
+
+		// XXX TODO: Why can't I put the logic for advancing the group in here?
 	}
 	else
 	{
