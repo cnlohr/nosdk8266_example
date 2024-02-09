@@ -58,7 +58,7 @@ uint32_t bleedover = 512; // in words   TODO: This can be smaller!  But we have 
 int words = 0;
 int words_nominal = 0;
 
-//FILE * fcba;
+FILE * fcba;
 FILE * fd;
 FILE * fCBI;
 
@@ -86,7 +86,7 @@ void GenChirp( double fStart,  double fEnd )
 			samplect++;
 			if( samplect == 32 )
 			{
-				//fprintf( fcba, "0x%08x,%c", sample_word, (words & 0xf0)?' ':'\n' );
+				fprintf( fcba, "0x%08x,%c", sample_word, (words & 0xf0)?' ':'\n' );
 				fwrite( &sample_word, 1, 4, fd );
 				words++;
 				sample_word = 0;
@@ -107,11 +107,11 @@ void GenChirp( double fStart,  double fEnd )
 
 int main()
 {
-	//fcba = fopen( "chirpbuff.h", "w" );
+	fcba = fopen( "chirpbuff.h", "w" );
 	fd = fopen( "chirpbuff.dat", "w" );
 	fCBI = fopen( "chirpbuffinfo.h", "w" );
 
-	//fprintf( fcba, "const uint32_t chirpbuff[%d] = {\n", (int)(sampletotal/32) );
+	fprintf( fcba, "const uint32_t chirpbuff[] = {\n" );
 
 	// For a given word, it is shifted out MSB (Bit and byte) first
 	GenChirp( chirp_begin, chirp_end );
@@ -121,8 +121,8 @@ int main()
 	words = 0;
 	GenChirp( chirp_end, chirp_begin );
 
-	//fprintf( fcba, "};\n" );
-	//fclose( fcba );
+	fprintf( fcba, "};\n" );
+	fclose( fcba );
 	fclose( fd );
 	fprintf( stderr, "Wrote out %d uint32_t's.\n", words + sample_word_median );
 

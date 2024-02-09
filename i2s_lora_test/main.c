@@ -1,5 +1,17 @@
 
 //#include "c_types.h"
+
+#ifdef TESTSTRAP
+
+#include <stdint.h>
+#include <stdio.h>
+#include "chirpbuff.h"
+#include <stdlib.h>
+
+#define uint32 uint32_t
+
+#else
+
 #include "esp8266_auxrom.h"
 #include "eagle_soc.h"
 #include "nosdk8266.h"
@@ -9,9 +21,13 @@
 #define call_delay_us(time) { asm volatile("mov.n a2, %0\n_call0 delay4clk" : : "r"(time * (MAIN_MHZ / 8)) : "a2" ); }
 
 #include "ets_sys.h"
+#include "pin_mux_register.h"
+
+#endif
+
 #include "slc_register.h"
 #include "dmastuff.h"
-#include "pin_mux_register.h"
+
 
 #include "chirpbuffinfo.h"
 
@@ -70,11 +86,19 @@ volatile int quadsetplace = -1;
 int runningcount_bits = 0;
 
 void slc_isr(void * v) {
+
+	uint32_t * sendbuff = 0;
+	uint32_t sendlen = 0;
 	struct sdio_queue *finishedDesc;
 //	slc_intr_status = READ_PERI_REG(SLC_INT_STATUS); -> We should check to make sure we are SLC_RX_EOF_INT_ST, but we are only getting one interrupt.
+#ifdef TESTSTRAP
+	struct sdio_queue tmp;
+	finishedDesc = &tmp;
+#else
 	WRITE_PERI_REG(SLC_INT_CLR, 0xffffffff);
-
 	finishedDesc=(struct sdio_queue*)READ_PERI_REG(SLC_RX_EOF_DES_ADDR);
+#endif
+
 	etx++;
 
 	if( quadsetplace < 0 )
@@ -98,13 +122,13 @@ void slc_isr(void * v) {
 		int word = fxcycle * DMA_SIZE_WORDS - symbol - 1;
 		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
 		word++;
-		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN + word);
+		sendbuff = (chirpbuffDOWN + word);
 	}
 	else
 	{
 		int word = fxcycle * DMA_SIZE_WORDS + symbol;
 		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
-		finishedDesc->buf_ptr = (uint32_t)(chirpbuffUP + word);
+		sendbuff = (chirpbuffUP + word);
 	}
 
 
@@ -116,25 +140,65 @@ void slc_isr(void * v) {
 	{
 		int overflow_amount = overflow / 32;
 		int overflow_remainder = overflow % 32;
-		finishedDesc->datalen = DMA_SIZE_WORDS*4 - 4*overflow_amount;
+		sendlen = DMA_SIZE_WORDS*4 - 4*overflow_amount;
 		runningcount_bits = overflow_remainder;
 
 		// XXX TODO: Why can't I put the logic for advancing the group in here?
 	}
 	else
 	{
-		finishedDesc->datalen = DMA_SIZE_WORDS*4;
+		sendlen = DMA_SIZE_WORDS*4;
 		runningcount_bits = running_bits_after;
 	}
 
+#ifdef TESTSTRAP
+	static FILE * fappendlog;
+	if( !fappendlog ) fappendlog = fopen( "fappendlog.csv", "w" );
+	{
+		if( symbol < 0 )
+			fprintf( fappendlog, "2, %d, %d\n", (int)(CHIRPLENGTH_WORDS - (sendbuff - chirpbuffDOWN) - 1), sendlen );
+		else
+			fprintf( fappendlog, "1, %d, %d\n", (int)(sendbuff - chirpbuffUP), sendlen );
+	}
+#else
+	finishedDesc->buf_ptr = (uint32_t)sendbuff;
+	finishedDesc->datalen = sendlen;
+#endif
+
 	fxcycle++;
 	return;
+
+
 dump0:
+#ifdef TESTSTRAP
+	printf( "Hit dummy %d %d\n", quadsetplace, quadsetcount );
+	exit( 0 );
+#else
 	// This location just always reads as zeroes.
 	finishedDesc->buf_ptr = (uint32_t)dummy;
 	quadsetplace = -1;
+#endif
 	return;
 }
+
+
+#ifdef TESTSTRAP
+
+void SPIRead( uint32_t pos, uint32_t * buff, int len )
+{
+	memcpy( buff, (pos - 0x00020000) + (uint8_t*)chirpbuff, len );
+}
+
+void nosdk8266_init()
+{
+}
+
+
+void testi2s_init()
+{
+}
+
+#else
 
 //Initialize I2S subsystem for DMA circular buffer use
 void testi2s_init() {
@@ -224,6 +288,8 @@ void testi2s_init() {
 	SET_PERI_REG_MASK(I2SCONF,I2S_I2S_TX_START|I2S_I2S_RX_START);
 }
 
+#endif
+
 int main()
 {
 	// We store the bit pattern at flash:0x20000, so we don't have to constantly
@@ -241,6 +307,7 @@ int main()
 	etx = 0;
 
 
+#ifndef TESTSTRAP
 	// Configure GPIO5 (TX) and GPIO2 (LED)
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U,FUNC_GPIO2);
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U,FUNC_GPIO5);
@@ -250,7 +317,7 @@ int main()
 	// It looks like, at least on my part, if I try running
 	// hotter it can get to 1040/5.1 but not all the way to
 	// 5 so it's unstable there.
-
+#endif
 	testi2s_init();
 
 	int frame = 0;
@@ -260,15 +327,20 @@ int main()
 	while(1) {
 		//12x this speed.
 		frame++;
+#ifndef TESTSTRAP
 		PIN_OUT_SET = _BV(2); //Turn GPIO2 light off.
 		//call_delay_us(1000000);
 		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10] );
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
 		call_delay_us(1000000);
-
+#endif
 		// Just some random data.
 		uint8_t payload_in[42] = { 0xbb, 0xcc, 0xde, 0x55, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22}; 
+#ifndef TESTSTRAP
+		int payload_in_size = 2;
+#else
 		int payload_in_size = 40;
+#endif
 
 		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 4, payload_in, payload_in_size );
 
@@ -338,9 +410,12 @@ int main()
 		// This tells the interrupt we have data.
 		quadsetcount = qso - quadsets;
 		printf( "--- %d %d %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
-
-
 		quadsetplace = 0;
+
+		while(1)
+		{
+			slc_isr( 0 );
+		}
 	}
 
 }

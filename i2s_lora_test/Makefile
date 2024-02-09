@@ -15,6 +15,10 @@ rf_data_gen : rf_data_gen.c
 
 chirpbuffinfo.h : chirpbuff.dat
 
+teststrap : main.c chirpbuff.dat
+	gcc -o teststrap main.c -DTESTSTRAP -I../nosdk8266/include
+
+
 chirpbuff.dat : rf_data_gen
 	./rf_data_gen
 
