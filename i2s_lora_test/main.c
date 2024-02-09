@@ -292,10 +292,10 @@ int main()
 
 		uint8_t syncword = 0x43;
 
-	#if ADDSF <= 6
-		#define CODEWORD_SHIFT 2 // XXX TODO: No idea what this would do here! XXX This is probably wrong.
-	#elif ADDSF >= 11
-		#define CODEWORD_SHIFT 3 // XXX TODO: Unknown for SF11, SF12 Might be 3?
+	#if SF_NUMBE == 7
+		#define CODEWORD_SHIFT 3
+	#elif SF_NUMBE == 8
+		#define CODEWORD_SHIFT 4
 	#else
 		#define CODEWORD_SHIFT 3
 	#endif
