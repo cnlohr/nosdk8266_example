@@ -48,9 +48,10 @@ int etx;
 #define MARK_FROM_SF0 (1<<ADDSF) // SF7
 
 // For some reason, adding a small time offset too symbols and header makes them more readable.
-#define DATA_PHASE_OFFSET ( CHIPSSPREAD / 512 )
+// On the ESP8266, this appaers to not be needed.
+#define DATA_PHASE_OFFSET 0 
 
-#define PREAMBLE_CHIRPS 10
+#define PREAMBLE_CHIRPS 8
 #define CODEWORD_LENGTH 2
 
 uint32_t quadsetcount;
@@ -75,10 +76,6 @@ void slc_isr(void * v) {
 //	slc_intr_status = READ_PERI_REG(SLC_INT_STATUS); -> We should check to make sure we are SLC_RX_EOF_INT_ST, but we are only getting one interrupt.
 	WRITE_PERI_REG(SLC_INT_CLR, 0xffffffff);
 
-	//#define DMA_SIZE_WORDS (129)
-	//#define NUM_DMAS_PER_QUARTER_CHIRP (11)
-	//#define CHIRPLENGTH_WORDS_WITH_PADDING (5675)
-
 	finishedDesc=(struct sdio_queue*)READ_PERI_REG(SLC_RX_EOF_DES_ADDR);
 	etx++;
 
@@ -99,7 +96,7 @@ void slc_isr(void * v) {
 
 	if( symbol < 0 )
 	{
-		int word = fxcycle * DMA_SIZE_WORDS - symbol;
+		int word = fxcycle * DMA_SIZE_WORDS - symbol - 1;
 		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
 		word++;
 		finishedDesc->buf_ptr = (uint32_t)(chirpbuffDOWN + word);
@@ -243,7 +240,7 @@ int main()
 		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10]);
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
 		call_delay_us(1000000);
-		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, 7 /* Hard-coded because of our table */ );
+		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, ADDSF );
 
 		if( r < 0 )
 		{
@@ -272,8 +269,6 @@ int main()
 	#else
 		#define CODEWORD_SHIFT 3
 	#endif
-
-		#define CODEWORD_SHIFT 3
 
 		if( CODEWORD_LENGTH > 0 )
 			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), 0 );
@@ -307,7 +302,7 @@ int main()
 			//ofs &= (MARK_FROM_SF6<<6) -1;
 			qso = AddChirp( qso, ofs, DATA_PHASE_OFFSET );
 		}
-		
+
 		quadsetcount = qso - quadsets;
 		printf( "--- %d %d %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
 

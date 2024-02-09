@@ -371,11 +371,13 @@ static void diagonalInterleaveSx(const uint8_t *codewords, const size_t numCodew
 		const size_t cwOff = x*PPM;
 		const size_t symOff = x*(4 + RDD);
 		for (size_t k = 0; k < 4 + RDD; k++){
+			uint16_t s = 0;
 			for (size_t m = 0; m < PPM; m++){
 				const size_t i = (m + k + PPM) % PPM;
 				const int bit = (codewords[cwOff + i] >> k) & 0x1;
-				symbols[symOff + k] |= (bit << m);
+				s |= (bit << m);
 			}
+			symbols[symOff + k] = s;
 		}
 	}
 }
@@ -456,6 +458,8 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	uint8_t payload_in[20] = { 0xbb/*0x48*/, 0xcc/*0x45*/, 0xde, 0x55, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22}; 
 	int payload_in_size = 6;
 	payload_in[4] = uctr++;
+
+
 	int _rdd = 4; // 1 = 4/5, 4 = 4/8 Coding Rate
 	int _whitening = 1; // Enable whitening
 	int _crc = 1; // Enable CRC.

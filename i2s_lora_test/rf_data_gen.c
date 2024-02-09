@@ -3,10 +3,11 @@
 #include <math.h>
 
 const uint32_t memory_offset = 0x20000;
+const double bw = 0.125;
 
 const double center_frequency = 903.9;
-const double chirp_begin = center_frequency-.075;
-const double chirp_end = center_frequency+.075;
+const double chirp_begin = center_frequency-bw/2;
+const double chirp_end = center_frequency+bw/2;
 
 const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 const double chirp_length_seconds = 0.001024;
@@ -74,7 +75,7 @@ int main()
 	GenChirp( chirp_begin, chirp_end );
 	int sample_word_median = words_nominal;
 	int quarter_chirp_length = ((sample_word_median+2)/4);
-
+	int reverse_start = words;
 	words = 0;
 	GenChirp( chirp_end, chirp_begin );
 
@@ -85,7 +86,7 @@ int main()
 
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS (%d)\n", words_nominal );
 	fprintf( fCBI, "#define MEMORY_START_OFFSET (0x%08x)\n", memory_offset );
-	fprintf( fCBI, "#define REVERSE_START_OFFSET (0x%08x)\n", memory_offset + sample_word_median*4 );
+	fprintf( fCBI, "#define REVERSE_START_OFFSET (0x%08x)\n", memory_offset + reverse_start * 4 );
 	fprintf( fCBI, "#define QUARTER_CHIRP_LENGTH_WORDS (%d)\n",  (int)(quarter_chirp_length) );
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS_WITH_PADDING (%d)\n", sample_word_median );
 	fprintf( fCBI, "#define STRIPE_BLEEDOVER_WORDS (%d)\n", bleedover );
