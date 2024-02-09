@@ -2,7 +2,7 @@ all : chirpbuff.dat.flash
 
 SUBMODULE=YES
 SRCPREFIX=../nosdk8266/
-MAIN_MHZ=173
+MAIN_MHZ=80
 SRCS=main.c
 DEPS=chirpbuffinfo.h
 COMPILECOUNT=$(shell cat compilecount.txt || true)
@@ -11,8 +11,7 @@ BUILDCOUNTCMD=echo 1+0$(COMPILECOUNT) | bc > compilecount.txt | true Compiled $(
 include ../nosdk8266/Makefile
 
 rf_data_gen : rf_data_gen.c
-	gcc -o $@ $^ -lm
-
+	gcc -o $@ $^ -lm -DMAIN_MHZ=$(MAIN_MHZ)
 
 chirpbuffinfo.h : chirpbuff.dat
 
@@ -20,8 +19,8 @@ chirpbuff.dat : rf_data_gen
 	./rf_data_gen
 
 chirpbuff.dat.flash : chirpbuff.dat
-	$(ESPUTIL) flash 0x20000 chirpbuff.dat
+	$(ESPUTIL) -b 115200 flash 0x20000 chirpbuff.dat
 
-localclean : clean
+clean : clean
 	rm -rf chirpbuff.h rf_data_gen chirpbuff.dat
 

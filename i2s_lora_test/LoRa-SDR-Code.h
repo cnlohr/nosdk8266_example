@@ -451,16 +451,10 @@ static void encodeFec(uint8_t  * codewords, const size_t RDD, size_t * cOfs, siz
 
 
 
-static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count, int max_symbols, int _sf )
+static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count, int max_symbols, int _sf, int _rdd, uint8_t * payload_plus_two_extra_crc_bytes, int payload_length )
 {
 	static int uctr = 0;
-	// Payload may have 2 extra bytes for CRC.
-	uint8_t payload_in[20] = { 0xbb/*0x48*/, 0xcc/*0x45*/, 0xde, 0x55, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22}; 
-	int payload_in_size = 6;
-	payload_in[4] = uctr++;
 
-
-	int _rdd = 4; // 1 = 4/5, 4 = 4/8 Coding Rate
 	int _whitening = 1; // Enable whitening
 	int _crc = 1; // Enable CRC.
 
@@ -488,7 +482,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	// XXX TODO: Investigate: I thought SF12 had an LDRO mode which made the PPM only 10.
 	// TODO: Compare to https://github.com/jkadbear/LoRaPHY/blob/master/LoRaPHY.m
 
-	const size_t numCodewords = roundUp( ( payload_in_size + 2 * _crc ) * 2 + (_explicit ? nHeaderCodewords:0) + extra_codewords_due_to_header_padding, PPM);
+	const size_t numCodewords = roundUp( ( payload_length + 2 * _crc ) * 2 + (_explicit ? nHeaderCodewords:0) + extra_codewords_due_to_header_padding, PPM);
 	const size_t numSymbols = N_HEADER_SYMBOLS + (numCodewords / PPM - 1) * (4 + _rdd);		// header is always coded with 8/4
 	uint8_t codewords[numCodewords];
 	memset( codewords, 0, sizeof( codewords ) );
@@ -505,15 +499,15 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	//std::vector<uint8_t> codewords(numCodewords);
 	if (_crc)
 	{
-		uint16_t crc = sx1272DataChecksum( payload_in, payload_in_size );
-		payload_in[payload_in_size] = crc & 0xff;
-		payload_in[payload_in_size+1] = (crc >> 8) & 0xff;
+		uint16_t crc = sx1272DataChecksum( payload_plus_two_extra_crc_bytes, payload_length );
+		payload_plus_two_extra_crc_bytes[payload_length] = crc & 0xff;
+		payload_plus_two_extra_crc_bytes[payload_length+1] = (crc >> 8) & 0xff;
 	}
 
 	// Why does this disagree? https://www.Carloalbertoboano.Com/Documents/Yang22emu.Pdf  
 	if (_explicit) {
 		uint8_t hdr[3];
-		hdr[0] = payload_in_size;
+		hdr[0] = payload_length;
 		hdr[1] = (_crc ? 1 : 0) | (_rdd << 1);
 		static int k;
 		hdr[2] = 
@@ -541,7 +535,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	}
 
 	size_t cOfs1 = cOfs;
-	encodeFec( codewords, 4 /* 8/4 */, &cOfs, &dOfs, payload_in, PPM - cOfs );
+	encodeFec( codewords, 4 /* 8/4 */, &cOfs, &dOfs, payload_plus_two_extra_crc_bytes, PPM - cOfs );
 
 	//uprintf( "cofs/dofs: %d %d\n", cOfs, dOfs );
 	//uprintf( "HP0: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // PPM:%d HEADER_RDD:%d numCodewords:%d // payload_in_size:%d ;;  numSymbols: %d 3=%d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size, numSymbols, 3 );
@@ -555,7 +549,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	if (numCodewords > PPM) {
 		size_t cOfs2 = cOfs;
 
-		encodeFec(codewords, _rdd, &cOfs, &dOfs, payload_in, numCodewords-PPM);
+		encodeFec(codewords, _rdd, &cOfs, &dOfs, payload_plus_two_extra_crc_bytes, numCodewords-PPM);
 
 		if (_whitening) {
 			Sx1272ComputeWhitening(codewords + cOfs2, numCodewords - PPM, PPM - cOfs1, _rdd);

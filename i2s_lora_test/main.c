@@ -36,22 +36,18 @@ volatile int fxcycle;
 int etx;
 
 
-
-
-
 #define MAX_SYMBOLS 270
 
 
 // Our table is bespoke for the specific SF.
 #define CHIPSSPREAD CHIRPLENGTH_WORDS// QUARTER_CHIRP_LENGTH_WORDS (TODO: Use the quater value elsewhere in the code)
-#define ADDSF 7
-#define MARK_FROM_SF0 (1<<ADDSF) // SF7
+#define MARK_FROM_SF0 (1<<SF_NUMBER) // SF7
 
 // For some reason, adding a small time offset too symbols and header makes them more readable.
 // On the ESP8266, this appaers to not be needed.
-#define DATA_PHASE_OFFSET 0 
+#define DATA_PHASE_OFFSET (CHIPSSPREAD/512)
 
-#define PREAMBLE_CHIRPS 8
+#define PREAMBLE_CHIRPS 10
 #define CODEWORD_LENGTH 2
 
 uint32_t quadsetcount;
@@ -70,6 +66,8 @@ int32_t * AddChirp( int32_t * qso, int offset, int verneer )
 
 
 volatile int quadsetplace = -1;
+
+int runningcount_bits = 0;
 
 void slc_isr(void * v) {
 	struct sdio_queue *finishedDesc;
@@ -92,8 +90,9 @@ void slc_isr(void * v) {
 		if( quadsetplace >= quadsetcount ) goto dump0;
 	}
 
-	int symbol = quadsets[quadsetplace];	
+	int symbol = quadsets[quadsetplace];
 
+	// Select down- or up-chirp.
 	if( symbol < 0 )
 	{
 		int word = fxcycle * DMA_SIZE_WORDS - symbol - 1;
@@ -107,6 +106,25 @@ void slc_isr(void * v) {
 		if( word >= CHIPSSPREAD ) word -= CHIPSSPREAD;
 		finishedDesc->buf_ptr = (uint32_t)(chirpbuffUP + word);
 	}
+
+
+	// Sometimes we do the full length, of all of the needed DMAs
+	// Sometimes we overshoot the time window, so we peel off 4 bytes.
+	int running_bits_after = runningcount_bits + DMA_SIZE_WORDS*32;
+	int overflow = running_bits_after - IDEAL_QUARTER_CHIRP_LENGTH_BITS;
+	if( overflow > 0 )
+	{
+		int overflow_amount = overflow / 32;
+		int overflow_remainder = overflow % 32;
+		finishedDesc->datalen = DMA_SIZE_WORDS*4 - 4*overflow_amount;
+		runningcount_bits = overflow_remainder;
+	}
+	else
+	{
+		finishedDesc->datalen = DMA_SIZE_WORDS*4;
+		runningcount_bits = running_bits_after;
+	}
+
 	fxcycle++;
 	return;
 dump0:
@@ -124,14 +142,13 @@ void testi2s_init() {
 	//Initialize DMA buffer descriptors in such a way that they will form a circular
 	//buffer.
 
-	fxcycle = 0;
 	for (x=0; x<DMABUFFERDEPTH; x++) {
 		i2sBufDescTX[x].owner=1;
 		i2sBufDescTX[x].eof=1;  // Trigger interrupt on packet complete.
 		i2sBufDescTX[x].sub_sof=0;
 		i2sBufDescTX[x].datalen=DMA_SIZE_WORDS*4;
-		i2sBufDescTX[x].blocksize=DMA_SIZE_WORDS*4;
-		i2sBufDescTX[x].buf_ptr= ((uint32_t)(chirpbuffUP)) + (fxcycle++) * DMA_SIZE_WORDS * 4;
+		i2sBufDescTX[x].blocksize=4;
+		i2sBufDescTX[x].buf_ptr= ((uint32_t)dummy);
 		i2sBufDescTX[x].unused=0;
 		i2sBufDescTX[x].next_link_ptr=(int)((x<(DMABUFFERDEPTH-1))?(&i2sBufDescTX[x+1]):(&i2sBufDescTX[0]));
 	}
@@ -207,14 +224,20 @@ void testi2s_init() {
 
 int main()
 {
-	int i = 0;
-
 	// We store the bit pattern at flash:0x20000, so we don't have to constantly
 	// re-write it when working on code.
 	SPIRead( MEMORY_START_OFFSET, chirpbuffUP, sizeof( chirpbuffUP ) );
 	SPIRead( REVERSE_START_OFFSET, chirpbuffDOWN, sizeof( chirpbuffDOWN ) );
 	memset( dummy, 0, sizeof( dummy ) );
+
+	// Don't crank up clock speed til we're done with flash.
 	nosdk8266_init();
+
+
+	int i = 0;
+	fxcycle = 0;
+	etx = 0;
+
 
 	// Configure GPIO5 (TX) and GPIO2 (LED)
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U,FUNC_GPIO2);
@@ -237,10 +260,15 @@ int main()
 		frame++;
 		PIN_OUT_SET = _BV(2); //Turn GPIO2 light off.
 		//call_delay_us(1000000);
-		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10]);
+		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10] );
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
 		call_delay_us(1000000);
-		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, ADDSF );
+
+		// Just some random data.
+		uint8_t payload_in[42] = { 0xbb, 0xcc, 0xde, 0x55, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22}; 
+		int payload_in_size = 40;
+
+		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 4, payload_in, payload_in_size );
 
 		if( r < 0 )
 		{
@@ -271,9 +299,9 @@ int main()
 	#endif
 
 		if( CODEWORD_LENGTH > 0 )
-			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), 0 );
+			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), DATA_PHASE_OFFSET );
 		if( CODEWORD_LENGTH > 1 )
-			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), 0 );
+			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), DATA_PHASE_OFFSET );
 
 
 		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
@@ -303,6 +331,9 @@ int main()
 			qso = AddChirp( qso, ofs, DATA_PHASE_OFFSET );
 		}
 
+		runningcount_bits = 0;
+
+		// This tells the interrupt we have data.
 		quadsetcount = qso - quadsets;
 		printf( "--- %d %d %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
 
