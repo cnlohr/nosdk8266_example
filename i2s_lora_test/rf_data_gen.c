@@ -41,7 +41,7 @@ const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 #endif
 // Increasing this to 0.130 on SF7 will decrease SNR but reduce packet errors.
 // .128 on SF8.
-const double bw = .126;
+const double bw = .125;
 
 #else
 #error Unknown Clock Rate
