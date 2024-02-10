@@ -2,9 +2,10 @@
 #include <stdint.h>
 #include <math.h>
 
+
 const uint32_t memory_offset = 0x20000;
 
-#define SF_NUMBER 8
+#define SF_NUMBER 7
 
 
 #if MAIN_MHZ == 80
@@ -40,7 +41,7 @@ const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 #endif
 // Increasing this to 0.130 on SF7 will decrease SNR but reduce packet errors.
 // .128 on SF8.
-const double bw = 0.129;
+const double bw = .126;
 
 #else
 #error Unknown Clock Rate
@@ -86,7 +87,7 @@ void GenChirp( double fStart,  double fEnd )
 			samplect++;
 			if( samplect == 32 )
 			{
-				fprintf( fcba, "0x%08x,%c", sample_word, (words & 0xf0)?' ':'\n' );
+				fprintf( fcba, "0x%08x,%c", sample_word, (words & 0xf)?' ':'\n' );
 				fwrite( &sample_word, 1, 4, fd );
 				words++;
 				sample_word = 0;

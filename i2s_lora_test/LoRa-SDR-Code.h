@@ -450,6 +450,12 @@ static void encodeFec(uint8_t  * codewords, const size_t RDD, size_t * cOfs, siz
 }
 
 
+//XXX XXX TODO:
+// For some reason, 20 byte payload, SF7 CR 5/4 seems to be spectacular.
+// why?  what's wrong with the other configurations?
+// Also, 25 byte payload SF7, CR 8/4
+
+
 
 static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count, int max_symbols, int _sf, int _rdd, uint8_t * payload_plus_two_extra_crc_bytes, int payload_length )
 {
@@ -463,6 +469,9 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	// SF11 is pretty close.
 
 	int _explicit = 1;
+
+
+	// TODO: https://dl.acm.org/doi/fullHtml/10.1145/3546869#sec-9 -- what about the corner cases for SF6, etc.
 
 	// SF6 does NOT WORK
 	int nHeaderCodewords = 0;
