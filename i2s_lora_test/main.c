@@ -52,7 +52,7 @@ volatile int fxcycle;
 int etx;
 
 
-#define MAX_SYMBOLS 270
+#define MAX_SYMBOLS 532
 
 
 // Our table is bespoke for the specific SF.
@@ -336,14 +336,14 @@ int main()
 #endif
 		// Just some random data.
 		uint8_t payload_in[259] = { 0xbb, 0xcc, 0xde, 0x55, 0x22,}; 
-		int payload_in_size = 150;
+		int payload_in_size = 6;
 
 		static int msgno = 0;
 		payload_in[4] = msgno++;
 
-		memset( lora_symbols, 0, MAX_SYMBOLS );
+		memset( lora_symbols, 0, sizeof(lora_symbols) );
 		lora_symbols_count = 0;
-		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 1, payload_in, payload_in_size );
+		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 0, payload_in, payload_in_size );
 
 		if( r < 0 )
 		{
@@ -431,7 +431,7 @@ int main()
 
 		// This tells the interrupt we have data.
 		quadsetcount = qso - quadsets + 0;
-		printf( "--- %d %d %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
+		printf( "--- %d [%d] %d\n", lora_symbols_count, quadsetcount, CHIPSSPREAD/4 );
 		quadsetplace = 0;
 #ifdef TESTSTRAP
 		while(1)
