@@ -328,11 +328,11 @@ int main()
 		//call_delay_us(1000000);
 		printf("ETX: %d %08x\n", fxcycle, chirpbuffUP[10] );
 		PIN_OUT_CLEAR = _BV(2); //Turn GPIO2 light off.
-		call_delay_us(1000000);
+		call_delay_us(500000);
 #endif
 		// Just some random data.
 		uint8_t payload_in[259] = { 0xbb, 0xcc, 0xde, 0x55, 0x22,}; 
-		int payload_in_size = 100;
+		int payload_in_size = 6;
 
 		static int msgno = 0;
 		payload_in[4] = msgno++;
@@ -359,10 +359,8 @@ int main()
 
 		uint8_t syncword = 0x43;
 
-	#if SF_NUMBE == 7
-		#define CODEWORD_SHIFT 3
-	#elif SF_NUMBE == 8
-		#define CODEWORD_SHIFT 4
+	#if SF_NUMBER == 6
+		#define CODEWORD_SHIFT 2
 	#else
 		#define CODEWORD_SHIFT 3
 	#endif
@@ -372,7 +370,6 @@ int main()
 		if( CODEWORD_LENGTH > 1 )
 			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), 0);
 
-
 		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
 		*(qso++) = -(CHIPSSPREAD * 1 / 4 )-1;
 		*(qso++) = -(CHIPSSPREAD * 2 / 4 )-1;
@@ -383,14 +380,12 @@ int main()
 		*(qso++) = -(CHIPSSPREAD * 3 / 4 )-1;
 		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
 
-		//if( ADDSF <= 6 )
-		//{
-		//	// Two additional upchirps with SF6 https://github.com/tapparelj/gr-lora_sdr/issues/74#issuecomment-1891569580
-		//	for( j = 0; j < 2; j++ )
-		//	{
-		//		qso = AddChirp( qso, 0, 0 );
-		//	}
-		//}
+		if( SF_NUMBER <= 6 )
+		{
+			// Two additional upchirps with SF6 https://github.com/tapparelj/gr-lora_sdr/issues/74#issuecomment-1891569580
+			for( j = 0; j < 2; j++ )
+				qso = AddChirp( qso, 0, 0 );
+		}
 
 		for( j = 0; j < lora_symbols_count; j++ )
 		{

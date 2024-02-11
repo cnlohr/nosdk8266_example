@@ -2,11 +2,12 @@
 #include <stdint.h>
 #include <math.h>
 
-
+const double center_frequency = 903.9;
+const double bw = .125;
 const uint32_t memory_offset = 0x20000;
 
-#define SF_NUMBER 8
-
+#define SF_NUMBER 7
+// SF6 still doesn't work :(
 
 #if MAIN_MHZ == 80
 const double sample_rate = 80;
@@ -14,41 +15,22 @@ const double sample_rate = 80;
 #error Not enough ram for chirp table
 #endif
 
-// Increasing this to 0.130 on SF7 will decrease SNR but reduce packet errors.
-// XXX WHYYYYYY Does it need to be turned per SF?
-const double bw = 0.127;
-
-
-
 #elif MAIN_MHZ == 115
 const double sample_rate = 1040.0/9.0; // Sampler at 115MHz.
 #if ( SF_NUMBER > 8 ) 
 #error Not enough ram for chirp table
 #endif
 
-// Increasing this to 0.130 on SF7 will decrease SNR but reduce packet errors.
-// XXX WHYYYYYY Does it need to be turned per SF?
-const double bw = 0.125;
-
-
-
-
-
 #elif MAIN_MHZ == 173
 const double sample_rate = 1040.0/6.0; // Sampler at 173MHz.
 #if (  SF_NUMBER > 7 ) 
 #error Not enough ram for chirp table
 #endif
-// Increasing this to 0.130 on SF7 will decrease SNR but reduce packet errors.
-// .128 on SF8.
-const double bw = .125;
 
 #else
 #error Unknown Clock Rate
 #endif
 
-
-const double center_frequency = 903.9;
 const double chirp_begin = center_frequency-bw/2;
 const double chirp_end = center_frequency+bw/2;
 
