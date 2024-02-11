@@ -371,7 +371,7 @@ static void diagonalInterleaveSx(const uint8_t *codewords, const size_t numCodew
 		const size_t cwOff = x*PPM;
 		const size_t symOff = x*(4 + RDD);
 		for (size_t k = 0; k < 4 + RDD; k++){
-			uint16_t s = 0;
+			uint16_t s = symbols[symOff + k];
 			for (size_t m = 0; m < PPM; m++){
 				const size_t i = (m + k + PPM) % PPM;
 				const int bit = (codewords[cwOff + i] >> k) & 0x1;
@@ -454,7 +454,7 @@ static void encodeFec(uint8_t  * codewords, const size_t RDD, size_t * cOfs, siz
 // For some reason, 20 byte payload, SF7 CR 5/4 seems to be spectacular.
 // why?  what's wrong with the other configurations?
 // Also, 25 byte payload SF7, CR 8/4
-
+// OR 31 byte payload SF7, CR 4/4
 
 
 static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count, int max_symbols, int _sf, int _rdd, uint8_t * payload_plus_two_extra_crc_bytes, int payload_length )

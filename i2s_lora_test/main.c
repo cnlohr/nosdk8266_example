@@ -341,6 +341,8 @@ int main()
 		static int msgno = 0;
 		payload_in[4] = msgno++;
 
+		memset( lora_symbols, 0, MAX_SYMBOLS );
+		lora_symbols_count = 0;
 		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 1, payload_in, payload_in_size );
 
 		if( r < 0 )
