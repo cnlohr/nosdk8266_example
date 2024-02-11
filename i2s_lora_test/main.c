@@ -59,10 +59,6 @@ int etx;
 #define CHIPSSPREAD CHIRPLENGTH_WORDS// QUARTER_CHIRP_LENGTH_WORDS (TODO: Use the quater value elsewhere in the code)
 #define MARK_FROM_SF0 (1<<SF_NUMBER) // SF7
 
-// For some reason, adding a small time offset too symbols and header makes them more readable.
-// On the ESP8266, this appaers to not be needed.
-#define DATA_PHASE_OFFSET (CHIPSSPREAD/256)
-
 #define PREAMBLE_CHIRPS 10
 #define CODEWORD_LENGTH 2
 
@@ -336,14 +332,14 @@ int main()
 #endif
 		// Just some random data.
 		uint8_t payload_in[259] = { 0xbb, 0xcc, 0xde, 0x55, 0x22,}; 
-		int payload_in_size = 6;
+		int payload_in_size = 100;
 
 		static int msgno = 0;
 		payload_in[4] = msgno++;
 
 		memset( lora_symbols, 0, sizeof(lora_symbols) );
 		lora_symbols_count = 0;
-		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 0, payload_in, payload_in_size );
+		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 4, payload_in, payload_in_size );
 
 		if( r < 0 )
 		{
@@ -353,8 +349,6 @@ int main()
 		}
 
 		int j;
-		//for( j = 0; j < symbols_len; j++ )
-		//	symbols[j] = 255 - symbols[j];
 
 		quadsetcount = 0;
 		int32_t * qso = quadsets;
@@ -374,9 +368,9 @@ int main()
 	#endif
 
 		if( CODEWORD_LENGTH > 0 )
-			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), DATA_PHASE_OFFSET * 2 );
+			qso = AddChirp( qso,  ( ( syncword & 0xf ) << CODEWORD_SHIFT ), 0 );
 		if( CODEWORD_LENGTH > 1 )
-			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), DATA_PHASE_OFFSET * 2 );
+			qso = AddChirp( qso, ( ( ( syncword & 0xf0 ) >> 4 ) << CODEWORD_SHIFT ), 0);
 
 
 		*(qso++) = -(CHIPSSPREAD * 0 / 4 )-1;
@@ -403,7 +397,7 @@ int main()
 			int ofs = lora_symbols[j];
 			//ofs = ofs ^ ((MARK_FROM_SF6<<6) -1);
 			//ofs &= (MARK_FROM_SF6<<6) -1;
-			qso = AddChirp( qso, ofs, DATA_PHASE_OFFSET );
+			qso = AddChirp( qso, ofs, 0 );
 			printf( "%02x ", ofs );
 		}
 		printf( "\n" );

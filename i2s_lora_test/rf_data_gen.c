@@ -5,7 +5,7 @@
 
 const uint32_t memory_offset = 0x20000;
 
-#define SF_NUMBER 7
+#define SF_NUMBER 8
 
 
 #if MAIN_MHZ == 80
