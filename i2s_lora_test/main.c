@@ -335,8 +335,8 @@ int main()
 		call_delay_us(1000000);
 #endif
 		// Just some random data.
-		uint8_t payload_in[142] = { 0xbb, 0xcc, 0xde, 0x55, 0x22,}; 
-		int payload_in_size = 20;
+		uint8_t payload_in[259] = { 0xbb, 0xcc, 0xde, 0x55, 0x22,}; 
+		int payload_in_size = 150;
 
 		static int msgno = 0;
 		payload_in[4] = msgno++;
@@ -404,7 +404,28 @@ int main()
 			//ofs = ofs ^ ((MARK_FROM_SF6<<6) -1);
 			//ofs &= (MARK_FROM_SF6<<6) -1;
 			qso = AddChirp( qso, ofs, DATA_PHASE_OFFSET );
+			printf( "%02x ", ofs );
 		}
+		printf( "\n" );
+
+/* GOOD (CR 5/4), 20 Bytes 58 30 60 00 68 10 60 48 70 14 5f 0f 2a ... */
+/* GOOD (CR 5/4), 21 Bytes 57 0f 7f 00 77 10 58 28 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 22 Bytes 27 37 60 0f 70 60 67 48 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 23 Bytes 28 08 7f 0f 6f 60 5f 28 70 14 5f 0f 2a ... */
+/*   EH (CR 5/4), 24 Bytes 58 0f 00 3f 77 10 58 57 70 14 5f 0f 2a ... */
+/* GOOD (CR 5/4), 25 Bytes 57 30 1f 3f 68 10 60 37 70 14 5f 0f 2a ... */
+/*   EH (CR 5/4), 26 Bytes 27 08 00 30 6f 60 5f 57 70 14 5f 0f 2a ... <<< CRC is bogus but payload is good. */
+/*  BAD (CR 5/4), 27 Bytes 28 37 1f 30 70 60 67 37 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 28 Bytes 58 30 7f 30 6f 1f 58 37 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 29 Bytes 57 0f 60 30 70 1f 60 57 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 30 Bytes 27 37 7f 3f 77 6f 5f 37 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 31 Bytes 28 08 60 3f 68 6f 67 57 70 14 5f 0f 2a ... */
+/*   PG (CR 5/4), 32 Bytes 20 4f 1f 0f 70 67 60 08 70 14 5f 0f 2a ... */
+/*  BAD (CR 5/4), 33 Bytes 2f 70 00 0f 6f 67 58 68 70 14 5f 0f 2a ... */
+/*   EH (CR 5/4), 34 Bytes 5f 48 1f 00 68 17 67 08 70 14 5f 0f 2a ... << CRC is bogus but payload is good. */
+/*   EH (CR 5/4), 35 Bytes 50 77 00 00 77 17 5f 68 70 14 5f 0f 2a ... << CRC is bogus but payload is good. */
+/* GOOD (CR 5/4), 36 Bytes 20 70 60 00 68 68 60 68 70 14 5f 0f 2a ... */
+/*   EH (CR 5/4), 37 Bytes 2f 4f 7f 00 77 68 58 08 70 14 5f 0f 2a ... << CRC is bogus but payload is good. */
 
 		runningcount_bits = 0;
 

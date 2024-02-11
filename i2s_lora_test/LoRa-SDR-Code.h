@@ -544,7 +544,9 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	}
 
 	size_t cOfs1 = cOfs;
-	encodeFec( codewords, 4 /* 8/4 */, &cOfs, &dOfs, payload_plus_two_extra_crc_bytes, PPM - cOfs );
+
+	// Header is encoded at 8/4 (4)
+	encodeFec( codewords, 4, &cOfs, &dOfs, payload_plus_two_extra_crc_bytes, PPM - cOfs );
 
 	//uprintf( "cofs/dofs: %d %d\n", cOfs, dOfs );
 	//uprintf( "HP0: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // PPM:%d HEADER_RDD:%d numCodewords:%d // payload_in_size:%d ;;  numSymbols: %d 3=%d\n", codewords[0], codewords[1], codewords[2], codewords[3], codewords[4], codewords[5], codewords[6], codewords[7],codewords[8], codewords[9], codewords[10],codewords[11],codewords[12],codewords[13],codewords[14],codewords[15], PPM , HEADER_RDD, numCodewords, payload_in_size, numSymbols, 3 );
@@ -574,15 +576,10 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	diagonalInterleaveSx(codewords, header_ppm, symbols, header_ppm, HEADER_RDD);
 
 	int i;
-	for( i = 0; i < N_HEADER_SYMBOLS; i++ )
-	{
-		symbols[i] *= 4;
-	}
 
 	if (numCodewords > header_ppm) {
 		diagonalInterleaveSx(codewords + nHeaderCodewords, numCodewords-nHeaderCodewords, symbols+N_HEADER_SYMBOLS, data_ppm, _rdd);
 	}
-
 
 	//uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
 
@@ -597,6 +594,12 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 		symbols[i] = sym; // OR +1
 	}
 
+	// The first header symbols are all shifted by 2.
+	// XXX TODO Look here for SF6 stuff.
+	for( i = 0; i < N_HEADER_SYMBOLS; i++ )
+	{
+		symbols[i] *= 4;
+	}
 
 	//uprintf( "HAM: %02x %02x %02x %02x %02x %02x %02x %02x / %02x %02x %02x %02x %02x %02x %02x %02x // %d %d %d // %d ;; %d %d %d\n", symbols[0], symbols[1], symbols[2], symbols[3], symbols[4], symbols[5], symbols[6], symbols[7],symbols[8], symbols[9], symbols[10],symbols[11],symbols[12],symbols[13],symbols[14],symbols[15], PPM , HEADER_RDD, numCodewords, payload_in_size, PPM,numCodewords, numSymbols );
 
