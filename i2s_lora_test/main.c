@@ -38,7 +38,7 @@
 void testi2s_init();
 
 //These contol the speed at which the bus comms.
-#define WS_I2S_BCK 1  //Can't be less than 1.
+#define WS_I2S_BCK SPI_DIV  //Can't be less than 1.
 #define WS_I2S_DIV 1
 
 //I2S DMA buffer descriptors
@@ -127,12 +127,20 @@ void slc_isr(void * v) {
 		sendbuff = (chirpbuffUP + word);
 	}
 
-
+#ifndef FOUND_PERFECT_DIVISOR
 	// Sometimes we do the full length, of all of the needed DMAs
 	// Sometimes we overshoot the time window, so we peel off 4 bytes.
+	//
+	// Very few combinations of clock rate, divisor, etc can produce
+	// perfect divisors. Most notably 52MHz, /2 SF9 can produce a perfect
+	// divisor.  While this is very tidy and beautiful that the 
+	// words would align perfectly, the actual difference it makes on
+	// LoRa's ability to receive the message is minimal.
+	//
+	// Additionally, 80MHz /2 SF7 can produce a perfect divisor.
 	int running_bits_after = runningcount_bits + DMA_SIZE_WORDS*32;
 	int overflow = running_bits_after - IDEAL_QUARTER_CHIRP_LENGTH_BITS;
-	if( overflow > 0 )
+	if( overflow >= 0 )
 	{
 		int overflow_amount = overflow / 32;
 		int overflow_remainder = overflow % 32;
@@ -146,6 +154,9 @@ void slc_isr(void * v) {
 		sendlen = DMA_SIZE_WORDS*4;
 		runningcount_bits = running_bits_after;
 	}
+#else
+	sendlen = DMA_SIZE_WORDS*4;
+#endif
 
 #ifdef TESTSTRAP
 	static FILE * fappendlog;
@@ -337,7 +348,6 @@ int main()
 		static int msgno = 0;
 		payload_in[4] = msgno++;
 
-		memset( lora_symbols, 0, sizeof(lora_symbols) );
 		lora_symbols_count = 0;
 		int r = CreateMessageFromPayload( lora_symbols, &lora_symbols_count, MAX_SYMBOLS, SF_NUMBER, 4, payload_in, payload_in_size );
 

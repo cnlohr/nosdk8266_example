@@ -475,7 +475,7 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 	if( _sf == 6 ) nHeaderCodewords = 6;
 	if( _sf == 7 ) nHeaderCodewords = 5; // CORRECT VALIDATED
 	if( _sf == 8 ) nHeaderCodewords = 6; // CORRECT VALIDATED
-	if( _sf == 9 ) nHeaderCodewords = 7;
+	if( _sf == 9 ) nHeaderCodewords = 7; // CORRECT VALIDATED
 	if( _sf == 10 ) nHeaderCodewords = 8;
 	if( _sf == 11 ) nHeaderCodewords = 9;  // ???? Probably Wrong
 	if( _sf == 12 ) nHeaderCodewords = 10;  // ???? Probably Wrong
@@ -504,6 +504,8 @@ static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count,
 		//uprintf( "Error: Too many symbols to fit (%d/%d)\n", numSymbols, max_symbols );
 		return -1;
 	}
+
+	memset( symbols, 0, numSymbols * sizeof( symbols[0] ) );
 
 	size_t cOfs = 0;
 	size_t dOfs = 0;
