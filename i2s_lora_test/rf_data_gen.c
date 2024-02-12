@@ -6,8 +6,11 @@ const double center_frequency = 904.1;
 const double bw = .125;
 const uint32_t memory_offset = 0x20000;
 
-#define SF_NUMBER 8
-// SF6 still doesn't work :(
+#define SF_NUMBER 7
+
+#if SF_NUMBER < 7
+#warning SF6 still does not work :(
+#endif
 
 #define SPI_DIV 1
 
@@ -131,7 +134,7 @@ retry_without_seek:
 	for( i = 511; i > 100; i-- )
 	{
 		int nr_to_div = (quarter_chirp_length_bits / 32 + 32) / i;
-		int num_bits_default = i * 32 * nr_to_div; // +1 here matches +1 below, for NUM_DMAS_PER_QUARTER_CHIRP
+		int num_bits_default = i * 32 * nr_to_div;
 		int leftover = num_bits_default - quarter_chirp_length_bits;
 		//fprintf( stderr, "%d %d %d [%d] --> %d\n", i, nr_to_div, num_bits_default, quarter_chirp_length_bits, leftover );
 		if( leftover < 32*nr_to_div &&
@@ -147,7 +150,7 @@ retry_without_seek:
 			factor = i;
 
 			//XXX TODO: I think this bleedover calc is wrong. Should investigate?
-			bleedover = (leftover+31)/32;
+			bleedover = num_bits_default/32;
 			is_perfect_divisor = leftover == 0;
 			break;
 		}
@@ -187,9 +190,6 @@ retry_without_seek:
 	fprintf( fCBI, "#define CHIRPLENGTH_WORDS_WITH_PADDING (%d)\n", sample_word_median );
 	fprintf( fCBI, "#define STRIPE_BLEEDOVER_WORDS (%d)\n", bleedover );
 	fprintf( fCBI, "#define TARGET_SAMPLE_COUNT_BITS (%d)\n", (int)sampletotal );
-
-
-
 	fprintf( fCBI, "#define DMA_SIZE_WORDS (%d)\n", factor );
 	fprintf( fCBI, "#define NUM_DMAS_PER_QUARTER_CHIRP (%d)\n", quarter_chirp_length/factor+((is_perfect_divisor)?0:1) );
 	fprintf( fCBI, "#define SF_NUMBER %d\n", SF_NUMBER );

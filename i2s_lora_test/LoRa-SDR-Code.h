@@ -449,14 +449,6 @@ static void encodeFec(uint8_t  * codewords, const size_t RDD, size_t * cOfs, siz
 	}
 }
 
-
-//XXX XXX TODO:
-// For some reason, 20 byte payload, SF7 CR 5/4 seems to be spectacular.
-// why?  what's wrong with the other configurations?
-// Also, 25 byte payload SF7, CR 8/4
-// OR 31 byte payload SF7, CR 4/4
-
-
 static int CreateMessageFromPayload( uint16_t * symbols, int * symbol_out_count, int max_symbols, int _sf, int _rdd, uint8_t * payload_plus_two_extra_crc_bytes, int payload_length )
 {
 	static int uctr = 0;
